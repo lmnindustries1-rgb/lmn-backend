@@ -59,7 +59,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ================= CONTACT API ================= */
-aapp.post("/send", async (req, res) => {
+app.post("/send", async (req, res) => {
   const { name, email, phone, message, captcha } = req.body;
 
   if (!captcha) {
