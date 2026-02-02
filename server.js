@@ -14,20 +14,18 @@ let enquiries = [];
 /* ================= BASIC MIDDLEWARE ================= */
 app.set("trust proxy", 1);
 
-aapp.use(cors({
-  origin: [
-    "https://lmn-industriesnetlifyapp.netlify.app",
-    "http://localhost:5000"
-  ],
-  methods: ["GET", "POST", "DELETE"],
+const corsOptions = {
+  origin: "https://lmn-industriesnetlifyapp.netlify.app",
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
-  credentials: false
-}));
-app.options("*", cors());
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // 🔥 THIS FIXES PREFLIGHT
+
 
 
 app.use(express.json());
-
 app.use(session({
   name: "lmn_admin_session",
   secret: process.env.SESSION_SECRET || "lmn-secret",
