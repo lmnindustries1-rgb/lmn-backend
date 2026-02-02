@@ -59,16 +59,23 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ================= CONTACT API ================= */
-app.post("/send", async (req, res) => {
+aapp.post("/send", async (req, res) => {
   const { name, email, phone, message, captcha } = req.body;
 
-  if (!captcha) return res.status(400).send("Captcha missing");
+  if (!captcha) {
+    return res.status(400).send("Captcha missing");
+  }
 
   try {
     const captchaRes = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
       null,
-      { params: { secret: process.env.RECAPTCHA_SECRET, response: captcha } }
+      {
+        params: {
+          secret: process.env.RECAPTCHA_SECRET,
+          response: captcha
+        }
+      }
     );
 
     if (!captchaRes.data.success) {
@@ -78,6 +85,9 @@ app.post("/send", async (req, res) => {
     console.error("Captcha error:", err);
     return res.status(500).send("Captcha error");
   }
+
+  // ✅ LOG enquiry (backend confirmed working)
+  console.log("New enquiry:", { name, email, phone, message });
 
   try {
     await transporter.sendMail({
@@ -93,11 +103,12 @@ app.post("/send", async (req, res) => {
       `
     });
 
-    res.json({ success: true });
+    // ✅ ONLY ONE RESPONSE
+    return res.json({ success: true });
 
   } catch (err) {
     console.error("Email error:", err);
-    res.status(500).send("Email error");
+    return res.status(500).send("Email error");
   }
 });
 
