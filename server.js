@@ -8,53 +8,57 @@ const session = require("express-session");
 
 const app = express();
 
-/* ================= IN-MEMORY STORE (RENDER SAFE) ================= */
-let enquiries = [];
-
-/* ================= BASIC MIDDLEWARE ================= */
+/* ================= BASIC SETTINGS ================= */
 app.set("trust proxy", 1);
 
+/* ================= CORS (FINAL FIX) ================= */
 const corsOptions = {
   origin: "https://lmn-industriesnetlifyapp.netlify.app",
+  credentials: true, // 🔥 REQUIRED
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // 🔥 THIS FIXES PREFLIGHT
-
-
+app.options("*", cors(corsOptions)); // 🔥 PREFLIGHT FIX
 
 app.use(express.json());
-app.use(session({
-  name: "lmn_admin_session",
-  secret: process.env.SESSION_SECRET || "lmn-secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: "none",     // 🔥 REQUIRED
-    secure: true,         // 🔥 REQUIRED on Render
-    maxAge: 15 * 60 * 1000
-  }
-}));
+
+/* ================= SESSION ================= */
+app.use(
+  session({
+    name: "lmn_admin_session",
+    secret: process.env.SESSION_SECRET || "lmn-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "none", // 🔥 REQUIRED for cross-site
+      secure: true,     // 🔥 REQUIRED on Render (HTTPS)
+      maxAge: 15 * 60 * 1000,
+    },
+  })
+);
 
 /* ================= RATE LIMIT ================= */
-app.use("/send", rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 50
-}));
+app.use(
+  "/send",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 50,
+  })
+);
 
-/* ================= EMAIL CONFIG ================= */
+/* ================= EMAIL ================= */
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
-/* ================= CONTACT FORM ================= */
+/* ================= CONTACT API ================= */
 app.post("/send", async (req, res) => {
   const { name, email, phone, message, captcha } = req.body;
 
@@ -64,7 +68,12 @@ app.post("/send", async (req, res) => {
     const captchaRes = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
       null,
-      { params: { secret: process.env.RECAPTCHA_SECRET, response: captcha } }
+      {
+        params: {
+          secret: process.env.RECAPTCHA_SECRET,
+          response: captcha,
+        },
+      }
     );
 
     if (!captchaRes.data.success)
@@ -73,70 +82,23 @@ app.post("/send", async (req, res) => {
     return res.status(500).send("Captcha error");
   }
 
-  const enquiry = {
-    id: Date.now(),
-    name,
-    email,
-    phone,
-    message,
-    date: new Date().toISOString()
-  };
-
-  enquiries.push(enquiry);
-
   try {
     await transporter.sendMail({
       from: `"LMN Industries" <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_USER,
       subject: "🔔 New CNC Enquiry",
-      html: `<p><b>${name}</b><br>${email}<br>${phone}<br>${message}</p>`
+      html: `
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phone}</p>
+        <p><b>Message:</b> ${message}</p>
+      `,
     });
 
-    res.send({ success: true });
+    res.json({ success: true });
   } catch {
     res.status(500).send("Email error");
   }
-});
-
-/* ================= ADMIN LOGIN ================= */
-app.post("/admin/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (
-    username === process.env.ADMIN_USER &&
-    password === process.env.ADMIN_PASS
-  ) {
-    req.session.admin = true;
-    return req.session.save(() => res.send({ success: true }));
-  }
-
-  res.status(401).send("Invalid credentials");
-});
-
-/* ================= AUTH ================= */
-function checkAuth(req, res, next) {
-  if (req.session.admin) return next();
-  res.status(403).send("Unauthorized");
-}
-
-/* ================= DASHBOARD ================= */
-app.get("/admin/enquiries", checkAuth, (req, res) => {
-  res.json({
-    total: enquiries.length,
-    data: [...enquiries].reverse()
-  });
-});
-
-/* ================= DELETE ================= */
-app.delete("/admin/enquiry/:id", checkAuth, (req, res) => {
-  const id = Number(req.params.id);
-  enquiries = enquiries.filter(e => e.id !== id);
-  res.send({ success: true });
-});
-
-/* ================= LOGOUT ================= */
-app.post("/admin/logout", (req, res) => {
-  req.session.destroy(() => res.send({ success: true }));
 });
 
 /* ================= SERVER ================= */
