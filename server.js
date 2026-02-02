@@ -68,38 +68,23 @@ app.post("/send", async (req, res) => {
     const captchaRes = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
       null,
-      {
-        params: {
-          secret: process.env.RECAPTCHA_SECRET,
-          response: captcha,
-        },
-      }
+      { params: { secret: process.env.RECAPTCHA_SECRET, response: captcha } }
     );
 
-    if (!captchaRes.data.success)
+    if (!captchaRes.data.success) {
       return res.status(400).send("Captcha failed");
-  } catch {
+    }
+  } catch (err) {
+    console.error("Captcha error:", err.message);
     return res.status(500).send("Captcha error");
   }
 
-  try {
-    await transporter.sendMail({
-      from: `"LMN Industries" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: "🔔 New CNC Enquiry",
-      html: `
-        <p><b>Name:</b> ${name}</p>
-        <p><b>Email:</b> ${email}</p>
-        <p><b>Phone:</b> ${phone}</p>
-        <p><b>Message:</b> ${message}</p>
-      `,
-    });
+  // ✅ TEMP: skip email
+  console.log("New enquiry:", { name, email, phone, message });
 
-    res.json({ success: true });
-  } catch {
-    res.status(500).send("Email error");
-  }
+  res.json({ success: true });
 });
+
 
 /* ================= SERVER ================= */
 const PORT = process.env.PORT || 3000;
