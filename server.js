@@ -11,9 +11,14 @@ const app = express();
 
 /* ================= BASIC MIDDLEWARE ================= */
 app.use(cors({
-  origin: "http://localhost:5000",
+  origin: [
+    "http://localhost:5000",
+    "http://127.0.0.1:5000",
+    "https://lmn-industries.netlify.app", // replace with your real Netlify URL
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 
 app.set("trust proxy", 1);
