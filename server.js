@@ -75,15 +75,32 @@ app.post("/send", async (req, res) => {
       return res.status(400).send("Captcha failed");
     }
   } catch (err) {
-    console.error("Captcha error:", err.message);
+    console.error("Captcha error:", err);
     return res.status(500).send("Captcha error");
   }
 
-  // ✅ TEMP: skip email
-  console.log("New enquiry:", { name, email, phone, message });
+  try {
+    await transporter.sendMail({
+      from: `"LMN Industries" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: "🔔 New CNC Enquiry",
+      html: `
+        <h3>New Enquiry</h3>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phone}</p>
+        <p><b>Message:</b><br>${message}</p>
+      `
+    });
 
-  res.json({ success: true });
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("Email error:", err);
+    res.status(500).send("Email error");
+  }
 });
+
 
 
 /* ================= SERVER ================= */
